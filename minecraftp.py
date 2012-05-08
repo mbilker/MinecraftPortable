@@ -20,26 +20,65 @@ class argParser
         self.parser.add_argument('-logwindow', help='Choose whether to display the wxPython window', default='yes')
         self.version = self.parser.parse_args().version
         self.logwindow = self.parser.parse_args().logwindow
+        
+class mcpLog():
+    def __init__(self, filename):
+        # Creating the initial log file/erasing old log
+        self.logFilename = filename
+        self.logObj = open(self.logFilename,'w')
+        self.logObj.close()        
+
+    def write(self, content):
+        # Appending to the log
+        self.logObj = open(self.logFilename,'a')
+        self.logObj.write(content)
+        self.logObj.close()
+
+class mcpConfig():
+    def __init__(self, filename):
+        # We store the config spec in temp
+        self.configSpec = os.getenv('TEMP') + '\mcp_configspec.ini'
+
+        # The config spec is basically the config file 'template'
+        specfile = open(self.configSpec,'w')
+        specFileData = '''\
+[MCPSettings]
+enableLog = boolean(default=True)
+dumpDebugInfo = boolean(default=True)
+javaFolder = string(default="")
+version = string(default="1.2.5")
+
+[AutoLogin]
+username = string(default="")
+password = string(default="")
+server = string(default="")
+'''
+        specfile.write(specFileData)
+        specfile.close()
+
+        # Load config and make sure it matches the spec
+        self.config = ConfigObj(filename, configspec=self.configSpec)
+        self.config.validate(Validator(), copy=True)
+
+        # Setting class vars
+        self.javaFolder = self.config['MCPSettings']['javaFolder']
+        self.javaArgs = self.config['MCPSettings']['javaArgs']
+
+        self.username = self.config['AutoLogin']['username']
+        self.password = self.config['AutoLogin']['password']
+        self.server = self.config['AutoLogin']['server']
+
+        self.config.write()
+
+    def eraseUserData(self):
+        # Erasing the username, password, etc from config
+        self.config['AutoLogin']['username'] = ""
+        self.config['AutoLogin']['password'] = ""
+        self.config.write()
 
 #----------------------------------------------------
 #- Functions
 #----------------------------------------------------
-
-def writeConfigSpec():
-    specfile = open(configSpec,'w')
-
-    specfile.write('[MCPSettings]\n')
-    specfile.write('enableLog = boolean(default=True)\n')
-    specfile.write('dumpDebugInfo = boolean(default=True)\n')
-    specfile.write('javaFolder = string(default="default")\n')
-    specfile.write('version = string(default="1.0.0")\n')
-    specfile.write('\n')
-    specfile.write('[AutoLogin]\n')
-    specfile.write('username = string(min=3, default="none")\n')
-    specfile.write('password = string(min=3, default="none")\n')
-    specfile.write('server = string(min=3, default="none")\n')
-    specfile.close()
-    return
 
 def dumpDebug():
     debug = open(debugFile,'w')
@@ -52,21 +91,6 @@ def dumpDebug():
     debug.close()
     return
 
-def startLog():
-    global log
-    if enableLog == True:
-        log = open(logFile,'w')
-    return
-
-def writeLog(content):
-    global log
-    if enableLog == True:
-        log = open(logFile,'a')
-        log.write(content + '\n')
-        print(content)
-        log.close()
-    return
-
 def writeConfig():
     config = ConfigObj()
     config.filename = configFile
@@ -75,7 +99,7 @@ def writeConfig():
         'enableLog': 'True',
         'dumpDebugInfo': 'True',
         'javaFolder': 'default',
-        'version': '1.0.0'
+        'version': '1.2.5'
         }
 
     AutoLogin = {
@@ -343,14 +367,18 @@ dataDir = os.path.join(currentDir, 'mcp_data')
 launcherDir = os.path.join(dataDir, 'launcher') # Place to save the launcher (minecraft.jar)
 serverDir = os.path.join(dataDir, 'server') # Place to save the server (minecraft_server.jar)
 
-launcherDir = dataDir + '/launcher'
-launcherExe = launcherDir + '/minecraft.exe'
+launcherFile = os.path.join(launcherDir, 'minecraft.jar') 
+launcherUrl = 'https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft.jar'
+
+serverFile = os.path.join(serverDir, 'minecraft_server.jar') 
+serverUrl = 'https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft_server.jar'
+
 javaFolder = dataDir + '/java/bin'
 
-configFile = dataDir + '/config.ini'
-logFile = dataDir + '/mcp_log.log'
-MClogFile = dataDir + '/minecraft_log.log'
-debugFile = dataDir + '/debug.txt'
+configFile = os.path.join(dataDir, '/config.ini')
+logFile = os.path.join(dataDir, '/mcp_log.log')
+MClogFile = os.path.join(dataDir, '/minecraft_log.log')
+debugFile = os.path.join(dataDir, '/debug.txt')
 
 randnum = str(random.randint(10000, 99999))
 
@@ -363,9 +391,13 @@ if not os.path.isdir(dataDir): os.mkdir(dataDir)
 if not os.path.isdir(dataDir + '/version'): os.mkdir(dataDir + '/version')
 if not os.path.isdir(launcherDir): os.mkdir(launcherDir)
         
-#----------------------------------------------------
-#- Main program
-#----------------------------------------------------
+# -------------------
+# - Actual program --
+# -------------------
+
+arguments = argParser()
+config = mcpConfig(configFile)
+log = mcpLog(logFile)
 
 readConfig()
 
