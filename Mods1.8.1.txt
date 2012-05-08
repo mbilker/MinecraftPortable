@@ -1,0 +1,40 @@
+APIs:
+ModLoader
+ModLoaderMp Unofficial
+Minecraft Forge
+Turbo Model Thingy
+
+Mods:
+Single Player Commands
+BuildCraft Core
+BuildCraft Transport
+BuildCraft Builders
+BuildCraft Energy
+BuildCraft Factory
+TooManyItems
+Advanced Pipes
+Equivalent Exchange
+Equivalent Exchange IndustrialCraft2 Addon
+CraftingGuide
+Planes
+Wireless Redstone
+Wireless Redstone Clocker
+Wireless Redstone Power Configurator
+Wireless Redstone Remote
+Wireless Redstone Sniffer
+Wireless Redstone Triangulator
+Portal Gun
+Convenient Inventory
+TreeCapitator
+IndustrialCraft2
+IC2Thermometer
+Rei's Minimap
+Ellian's MaterialDetector
+RedPower Core
+RedPower Wiring
+RedPower Logic
+RedPower Array
+RedPower Lighting
+RedPower World
+RedPower Machine
+Iron Chests
