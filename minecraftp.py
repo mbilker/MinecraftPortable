@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import os,sys, urllib, subprocess, platform, random, wx, threading
-import deps
+import os, sys, urllib, subprocess, platform, random, wx, threading
+from datetime import datetime
+from deps import *
 
 # -------------------------------------------------------
 # - mbilker modified version of Minecraft Portable 2.7 --
@@ -18,7 +19,7 @@ class MainWindow(wx.Frame):
         global logger
         wx.Frame.__init__(self, parent, title=title, size=(500,500))
         self.Bind(wx.EVT_CLOSE, self.OnClose)
-        self.Bind(EVT_COUNT, self.OnCount)
+        self.Bind(EVT_LOG, self.OnLog)
         logger = wx.TextCtrl(self, style=wx.TE_MULTILINE | wx.TE_READONLY)
         self.Show(True)
         Minecraft(self).start()
@@ -26,7 +27,7 @@ class MainWindow(wx.Frame):
     def OnClose(self, event):
         event.Veto()
 
-    def OnCount(self, evt):
+    def OnLog(self, evt):
         logger.AppendText(unicode(evt.GetValue() + "\n"))
 
 myEVT_LOG = wx.NewEventType()
@@ -57,7 +58,7 @@ class Minecraft(threading.Thread):
         self._parent = parent
 
     def run(self):
-        launchMinecraft(self._parent)
+        launcher.launch(user, config, self._parent)
         frame.Destroy()
 
 # --------------------------
@@ -69,8 +70,10 @@ class argParser():
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('-version', help='Choose a different version of minecraft', default='notchosen')
         self.parser.add_argument('-logwindow', help='Choose whether to display the wxPython window', default='yes')
+        self.parser.add_argument('-server', help='Run the vanilla minecraft server', default=False)
         self.version = self.parser.parse_args().version
         self.logwindow = self.parser.parse_args().logwindow
+        self.server = self.parser.parse_args().server
 
 class mcpLog():
     def __init__(self, filename):
@@ -83,12 +86,17 @@ class mcpLog():
         # Appending to the log
         self.logObj = open(self.logFilename,'a')
         self.logObj.write(content)
+        sys.stdout.write(content)
         self.logObj.close()
 
 class mcpConfig():
     def __init__(self, filename):
         # We store the config spec in temp
-        self.configSpec = os.getenv('TEMP') + '\mcp_configspec.ini'
+        randnum = str(random.randint(10000, 99999))
+        if platform.system() == 'Windows':
+            self.configSpec = os.getenv('TEMP') + '\mcp_configspec' + randnum + '.ini'
+        elif platform.system() == 'Darwin':
+            self.configSpec = '/private/tmp/mcp_configspec' + randnum + '.ini'
 
         # The config spec is basically the config file 'template'
         specfile = open(self.configSpec,'w')
@@ -112,9 +120,9 @@ server = string(default="")
         self.config.validate(Validator(), copy=True)
 
         # Setting class vars
-        self.enableLog = config['MCPSettings']['enableLog']
-        self.dumpDebugInfo = config['MCPSettings']['dumpDebugInfo']
-        self.version = config['MCPSettings']['version']
+        self.enableLog = self.config['MCPSettings']['enableLog']
+        self.dumpDebugInfo = self.config['MCPSettings']['dumpDebugInfo']
+        self.version = self.config['MCPSettings']['version']
         self.javaFolder = self.config['MCPSettings']['javaFolder']
 
         self.username = self.config['AutoLogin']['username']
@@ -188,7 +196,10 @@ class mcpLauncher():
         log.write('- Searching for Java binaries... ')
         # Going through every directory in the list to find javaw.exe
         for directory in directories:
-            binFile = findFile('javaw.exe', directory)
+            if platform.system() == 'Windows':
+                binFile = findFile('javaw.exe', directory)
+            elif platform.system() == 'Darwin':
+                binFile = findFile('java', directory)
             if binFile:
                 self.javaBin = binFile
                 log.write('done.\n')
@@ -201,16 +212,34 @@ class mcpLauncher():
             log.write('\nError: Could not find Java binaries.')
             sys.exit(1)
 
-    def launch(self, user, config):       
+    def launch(self, user, config, wxparent):
         if user.username and user.password:
             log.write('- Using autologin data for username and password\n')
         else: config.server = None # We can't use the server info without the username/password
         if config.server: log.write('- Autologin server found: {}\n'.format(config.server))
 
-        arguments = [os.path.realpath(self.javaBin)] + config.javaArgs.split() + ['-cp', self.launcherJar, 'net.minecraft.LauncherFrame', user.username, user.password, config.server]
-        arguments = filter(None, arguments) # Remove any empty values (added from config, etc)
-        
-        subprocess.call(arguments)
+        javaArguments = [os.path.realpath(self.javaBin)] + ['-Xms512M', '-Xmx1024M', '-cp', self.launcherJar, 'net.minecraft.LauncherFrame', user.username, user.password, config.server]
+        javaArguments = filter(None, javaArguments) # Remove any empty values (added from config, etc)
+        proc = subprocess.Popen(javaArguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        log.write('- Log of Minecraft\n')
+        msgs = []
+        while True:
+            o = proc.stdout.readline()
+            returnvalue = proc.poll()
+            if o == '' and returnvalue is not None:
+                break
+            if o != '':
+                log.write(o.strip() + '\n')
+                if arguments.logwindow == 'yes':
+                    evt = LogEvent(myEVT_LOG, -1, o.strip())
+                    wx.PostEvent(wxparent, evt)
+
+        if returnvalue != 0:
+            for msg in msgs:
+                log.write(msg)
+        else:
+            for msg in msgs:
+                log.write(msg)
 
 class mcpServer():
     def __init__(self, filename, url):
@@ -226,28 +255,10 @@ class mcpServer():
         self.serverJar = filename
 
     def launch(self, config, launcher):
-        arguments = [os.path.realpath(launcher.javaBin)] + config.javaArgs.split() + ['-jar', os.path.realpath(self.serverJar)]
+        arguments = [os.path.realpath(launcher.javaBin)] + ['-jar', os.path.realpath(self.serverJar)]
         arguments = filter(None, arguments) # Remove any empty values (added from config, etc)
         os.chdir(self.serverDir)
         subprocess.call(arguments)
-        msgs = []
-        while True:
-            o = proc.stdout.readline()
-            returnvalue = proc.poll()
-            if o == '' and returnvalue is not None:
-                break
-            if o != '':
-                writeLog(o.strip())
-                if args.logwindow == 'yes':
-                    evt = CountEvent(myEVT_LOG, -1, o.strip())
-                    wx.PostEvent(parent, evt)
-
-        if returnvalue != 0:
-            for msg in msgs:
-                writeLog(msg)
-        else:
-            for msg in msgs:
-                writeLog(msg)
 
 def checkForExternal():
     if not len(sys.argv) < 2 and not sys.argv[1] == '-server':
@@ -273,131 +284,6 @@ def dumpDebug():
     debug.write('ConfigSpec File: ' + configSpec + '\n')
     debug.write('Launcher Jar: ' + os.path.realpath(launcherJar) + '\n')
     debug.close()
-    return
-
-#----------------------------------------------------
-#- Functions
-#----------------------------------------------------
-
-def readConfig():
-    writeConfigSpec()
-
-    global enableLog
-    global dumpDebugInfo
-    global javaFolder
-    global username
-    global password
-    global server
-    global config
-    global launcherJar
-    global launcherClass
-    global version
-    global versionDir
-
-    username = ''
-    password = ''
-    server = ''
-
-    config = ConfigObj(configFile, configspec=configSpec)
-    validator = Validator()
-    config.validate(validator, copy=True)
-
-    enableLog = config['MCPSettings']['enableLog']
-    dumpDebugInfo = config['MCPSettings']['dumpDebugInfo']
-    version = config['MCPSettings']['version']
-
-    startLog()
-
-    writeLog('Minecraft Portable 2.6')
-    writeLog('by NotTarts')
-    writeLog('mbilker modified version')
-    writeLog('')
-
-    writeLog('Standard Minecraft Launcher being used')
-    launcherJar = launcherDir + '/minecraft.jar'
-    launcherClass = 'net.minecraft.LauncherFrame'
-
-    if args.version != 'notchosen':
-        version = args.version
-        writeLog('Changed Minecraft version to %s' %(version))
-
-    versionDir = dataDir + '/version/' + version
-    if not os.path.isdir(versionDir): os.mkdir(versionDir)
-    writeLog(version + ' Minecraft version used')
-    writeLog('')
-
-    if platform.system() == 'Windows':
-        os.putenv('APPDATA',versionDir)
-    elif platform.system() == 'Darwin':
-        os.putenv('HOME',versionDir)
-
-    if os.path.isfile(config['MCPSettings']['javaFolder'] + '/javaw.exe'):
-        javaFolder = config['MCPSettings']['javaFolder']
-        writeLog('Custom Java Portable binary path found.')
-        writeLog('')
-    else:
-        config['MCPSettings']['javaFolder'] = 'default'
-
-    if not config['AutoLogin']['server'] == 'none':
-        if not len(config['AutoLogin']['server']) < 6:
-            server = config['AutoLogin']['server']
-        else: config['AutoLogin']['server'] = 'none'
-
-    if len(config['AutoLogin']['username']) < 3: config['AutoLogin']['username'] = 'none'
-    if len(config['AutoLogin']['password']) < 3: config['AutoLogin']['password'] = 'none'
-
-    readUserData()
-    if dumpDebugInfo == True:
-        dumpDebug()
-
-    config.write()
-    return
-
-def launchMinecraft(parent):
-    writeLog('Launching Minecraft...')
-
-    arguments = ['']
-
-    if not username == '':
-        arguments = [username, password]
-        writeLog('- Using autologin data for username and password.')
-    if not server == '':
-        arguments = [username, password, server]
-        writeLog('- Auto-login server found: ' + server)
-
-    if os.path.isdir(javaFolder):
-        writeLog('- Java Portable binaries discovered.')
-        if platform.system() == 'Windows':
-            proc = subprocess.Popen([os.path.realpath(javaFolder + '/javaw.exe'),'-Xms512M','-Xmx512M','-cp',launcherJar,launcherClass] + arguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        elif platform.system() == 'Darwin':
-            proc = subprocess.Popen(['/usr/bin/java','-Xms512M','-Xmx512M','-cp',launcherJar,launcherClass] + arguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-
-        writeLog('- Log of Minecraft.')
-
-        msgs = []
-        while True:
-            o = proc.stdout.readline()
-            returnvalue = proc.poll()
-            if o == '' and returnvalue is not None:
-                break
-            if o != '':
-                writeLog(o.strip())
-                if args.logwindow == 'yes':
-                    evt = CountEvent(myEVT_LOG, -1, o.strip())
-                    wx.PostEvent(parent, evt)
-
-        if returnvalue != 0:
-            for msg in msgs:
-                writeLog(msg)
-        else:
-            for msg in msgs:
-                writeLog(msg)
-
-    else:
-        writeLog('- No Java Portable binaries discovered.')
-        subprocess.call([launcherExe] + arguments)
-
-    writeLog('- Done.')
     return
 
 # ---------------------------------------
@@ -426,10 +312,11 @@ serverUrl = 'https://s3.amazonaws.com/MinecraftDownload/launcher/minecraft_serve
 
 javaFolder = dataDir + '/java/bin'
 
-configFile = os.path.join(dataDir, '/config.ini')
-logFile = os.path.join(dataDir, '/mcp_log.log')
-MClogFile = os.path.join(dataDir, '/minecraft_log.log')
-debugFile = os.path.join(dataDir, '/debug.txt')
+configFile = os.path.join(dataDir, 'config.ini')
+userFile = os.path.join(dataDir, 'autologin')
+logFile = os.path.join(dataDir, 'mcp_log.log')
+MClogFile = os.path.join(dataDir, 'minecraft_log.log')
+debugFile = os.path.join(dataDir, 'debug.txt')
 
 if not os.path.isdir(dataDir): os.mkdir(dataDir)
 if not os.path.isdir(dataDir + '/version'): os.mkdir(dataDir + '/version')
@@ -444,12 +331,12 @@ config = mcpConfig(configFile)
 log = mcpLog(logFile)
 
 if arguments.version != 'notchosen':
-    version = args.version
+    version = arguments.version
     log.write('Changed Minecraft version to %s\n' %(version))
 
-versionDir = os.path.join(dataDir, '/version/', version)
+versionDir = os.path.join(dataDir, 'version', config.version)
 if not os.path.isdir(versionDir): os.mkdir(versionDir)
-log.write(version + ' Minecraft version used\n')
+log.write(config.version + ' Minecraft version used\n')
 
 if platform.system() == 'Windows':
     os.putenv('APPDATA',versionDir)
@@ -465,24 +352,23 @@ launcher = mcpLauncher(launcherFile, launcherUrl) # Downloading launcher
 
 systemJava = []
 if platform.system() == 'Windows':
-    systemJava.append(os.path.join(str(os.getenv('ProgramW6432')), 'Java'), os.path.join(str(os.getenv('ProgramFiles(x86)'))))
+    systemJava.append(os.path.join(str(os.getenv('ProgramW6432')), 'Java'), os.path.join(str(os.getenv('ProgramFiles(x86)')), 'Java'))
 elif platform.system() == 'Darwin':
-    systemJava.append('/usr/bin/java')
+    systemJava.append('/usr/bin')
 
-launcher.findJava([config.javaFolder, dataDir, systemJava, 'Java')])
+launcher.findJava([config.javaFolder, dataDir] + systemJava)
 
 if arguments.server:
     server = mcpServer(serverFile, serverUrl) # Downloading server
     server.launch(config, launcher) # Launch Minecraft server!
-else: launcher.launch(user, config) # Launch Minecraft!
 
 if arguments.logwindow == 'yes':
     app = wx.App(False)
     frame = MainWindow(None, "Minecraft Log")
     app.MainLoop()
 else:
-    launchMinecraft('no')
+    launcher.launch(user, config, None) # Launch Minecraft!
 
-if os.path.isfile(configSpec): os.remove(configSpec)
+if os.path.isfile(config.configSpec): os.remove(config.configSpec)
 
-log.write('\nProcess finished.')
+log.write('\nProcess finished.\n')
