@@ -71,9 +71,9 @@ class argParser():
         self.parser.add_argument('-version', help='Choose a different version of minecraft', default='notchosen')
         self.parser.add_argument('-logwindow', help='Choose whether to display the wxPython window', default='yes')
         self.parser.add_argument('-server', help='Run the vanilla minecraft server', default=False)
-        self.version = self.parser.parse_args().version
-        self.logwindow = self.parser.parse_args().logwindow
-        self.server = self.parser.parse_args().server
+        self.version = self.parser.parse_known_args()[0].version
+        self.logwindow = self.parser.parse_known_args()[0].logwindow
+        self.server = self.parser.parse_known_args()[0].server
 
 class mcpLog():
     def __init__(self, filename):
@@ -291,7 +291,10 @@ def dumpDebug():
 # ---------------------------------------
 
 if hasattr(sys, 'frozen'):
-    currentDir = os.path.dirname(sys.executable)
+    if platform.system() == 'Windows':
+        currentDir = os.path.dirname(sys.executable)
+    elif platform.system() == 'Darwin':
+        currentDir = os.path.normpath(os.path.join(sys.path[0], '..', '..', '..'))
 else:
     currentDir = sys.path[0]
 
@@ -345,7 +348,8 @@ elif platform.system() == 'Darwin':
 
 log.write('Minecraft Portable 2.7.1\nby NotTarts (mbilker modified version)\n\nStarted at {}\nData directory: {}\n\n'.format(datetime.now(), os.path.realpath(dataDir)))
 
-checkForExternal()
+if not platform.system() == 'Darwin':
+    checkForExternal()
 
 user = mcpUserData(config, userFile, key) # Load our user data from wherever, if it exists
 launcher = mcpLauncher(launcherFile, launcherUrl) # Downloading launcher
