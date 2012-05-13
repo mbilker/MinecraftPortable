@@ -2,7 +2,7 @@
 
 import os, sys, urllib, subprocess, platform, random, threading
 from datetime import datetime
-#import wx
+import wx
 from deps import *
 
 # -------------------------------------------------------
@@ -11,7 +11,6 @@ from deps import *
 # - Minecraft logging to stdout thanks to MCP          --
 # -------------------------------------------------------
 
-'''
 # -------------
 # - wxPython --
 # -------------
@@ -62,7 +61,7 @@ class Minecraft(threading.Thread):
     def run(self):
         launcher.launch(user, config, self._parent)
         frame.Destroy()
-'''
+
 # --------------------------
 # - Classes and functions --
 # --------------------------
@@ -222,8 +221,8 @@ class mcpLauncher():
 
         javaArguments = [os.path.realpath(self.javaBin)] + ['-Xms512M', '-Xmx1024M', '-cp', self.launcherJar, 'net.minecraft.LauncherFrame', user.username, user.password, config.server]
         javaArguments = filter(None, javaArguments) # Remove any empty values (added from config, etc)
-        subprocess.call(javaArguments)
-'''        proc = subprocess.Popen(javaArguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+#        subprocess.call(javaArguments)
+        proc = subprocess.Popen(javaArguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         log.write('- Log of Minecraft\n')
         msgs = []
         while True:
@@ -242,7 +241,7 @@ class mcpLauncher():
                 log.write(msg)
         else:
             for msg in msgs:
-                log.write(msg) '''
+                log.write(msg)
 
 class mcpServer():
     def __init__(self, filename, url):
@@ -304,7 +303,7 @@ else:
 if platform.system() == 'Windows':
     os.system("title Minecraft Portable")
 
-key = triple_des('ydK5203s5485MxB02ky31kWl',CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+key = triple_des('ydK5203s5485MxB02ky31kWl', CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
 
 dataDir = os.path.join(currentDir, 'mcp_data')
 launcherDir = os.path.join(dataDir, 'launcher') # Place to save the launcher (minecraft.jar)
@@ -369,13 +368,13 @@ if arguments.server:
     server = mcpServer(serverFile, serverUrl) # Downloading server
     server.launch(config, launcher) # Launch Minecraft server!
 
-#if arguments.logwindow == True:
-#    app = wx.App(False)
-#    frame = MainWindow(None, "Minecraft Log")
-#    app.MainLoop()
-#else:
-#    launcher.launch(user, config, None) # Launch Minecraft!
-launcher.launch(user, config, None) # Launch Minecraft!
+if arguments.logwindow == True:
+    app = wx.App(False)
+    frame = MainWindow(None, "Minecraft Log")
+    app.MainLoop()
+else:
+    launcher.launch(user, config, None) # Launch Minecraft!
+#launcher.launch(user, config, None) # Launch Minecraft!
 
 if os.path.isfile(config.configSpec): os.remove(config.configSpec)
 
