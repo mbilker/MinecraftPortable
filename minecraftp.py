@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
-import os, sys, urllib, subprocess, platform, random, wx, threading
+import os, sys, urllib, subprocess, platform, random, threading
 from datetime import datetime
+#import wx
 from deps import *
 
 # -------------------------------------------------------
@@ -10,6 +11,7 @@ from deps import *
 # - Minecraft logging to stdout thanks to MCP          --
 # -------------------------------------------------------
 
+'''
 # -------------
 # - wxPython --
 # -------------
@@ -60,7 +62,7 @@ class Minecraft(threading.Thread):
     def run(self):
         launcher.launch(user, config, self._parent)
         frame.Destroy()
-
+'''
 # --------------------------
 # - Classes and functions --
 # --------------------------
@@ -69,7 +71,7 @@ class argParser():
     def __init__(self):
         self.parser = argparse.ArgumentParser()
         self.parser.add_argument('-version', help='Choose a different version of minecraft', default='notchosen')
-        self.parser.add_argument('-logwindow', help='Choose whether to display the wxPython window', default='yes')
+        self.parser.add_argument('-logwindow', help='Choose whether to display the wxPython window', default=False)
         self.parser.add_argument('-server', help='Run the vanilla minecraft server', default=False)
         self.version = self.parser.parse_known_args()[0].version
         self.logwindow = self.parser.parse_known_args()[0].logwindow
@@ -220,7 +222,8 @@ class mcpLauncher():
 
         javaArguments = [os.path.realpath(self.javaBin)] + ['-Xms512M', '-Xmx1024M', '-cp', self.launcherJar, 'net.minecraft.LauncherFrame', user.username, user.password, config.server]
         javaArguments = filter(None, javaArguments) # Remove any empty values (added from config, etc)
-        proc = subprocess.Popen(javaArguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        subprocess.call(javaArguments)
+'''        proc = subprocess.Popen(javaArguments, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         log.write('- Log of Minecraft\n')
         msgs = []
         while True:
@@ -230,8 +233,8 @@ class mcpLauncher():
                 break
             if o != '':
                 log.write(o.strip() + '\n')
-                if arguments.logwindow == 'yes':
-                    evt = LogEvent(myEVT_LOG, -1, o.strip())
+                if arguments.logwindow == True:
+                    evt = LogEvent(myEVT_LOG, -1, o.strip()
                     wx.PostEvent(wxparent, evt)
 
         if returnvalue != 0:
@@ -239,7 +242,7 @@ class mcpLauncher():
                 log.write(msg)
         else:
             for msg in msgs:
-                log.write(msg)
+                log.write(msg) '''
 
 class mcpServer():
     def __init__(self, filename, url):
@@ -366,12 +369,13 @@ if arguments.server:
     server = mcpServer(serverFile, serverUrl) # Downloading server
     server.launch(config, launcher) # Launch Minecraft server!
 
-if arguments.logwindow == 'yes':
-    app = wx.App(False)
-    frame = MainWindow(None, "Minecraft Log")
-    app.MainLoop()
-else:
-    launcher.launch(user, config, None) # Launch Minecraft!
+#if arguments.logwindow == True:
+#    app = wx.App(False)
+#    frame = MainWindow(None, "Minecraft Log")
+#    app.MainLoop()
+#else:
+#    launcher.launch(user, config, None) # Launch Minecraft!
+launcher.launch(user, config, None) # Launch Minecraft!
 
 if os.path.isfile(config.configSpec): os.remove(config.configSpec)
 
