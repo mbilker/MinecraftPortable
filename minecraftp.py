@@ -304,7 +304,7 @@ else:
 if platform.system() == 'Windows':
     os.system("title Minecraft Portable")
 
-key = triple_des('ydK5203s5485MxB02ky31kWl',CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
+key = triple_des('ydK5203s5485MxB02ky31kWl', CBC, "\0\0\0\0\0\0\0\0", pad=None, padmode=PAD_PKCS5)
 
 dataDir = os.path.join(currentDir, 'mcp_data')
 launcherDir = os.path.join(dataDir, 'launcher') # Place to save the launcher (minecraft.jar)
@@ -336,20 +336,30 @@ arguments = argParser()
 config = mcpConfig(configFile)
 log = mcpLog(logFile)
 
+log.write('Minecraft Portable 2.7.1\nby NotTarts (mbilker modified version)\n\nStarted at {}\nData directory: {}\n\n'.format(datetime.now(), os.path.realpath(dataDir)))
+
 if arguments.version != 'notchosen':
     version = arguments.version
     log.write('Changed Minecraft version to %s\n' %(version))
 
 versionDir = os.path.join(dataDir, 'version', config.version)
-if not os.path.isdir(versionDir): os.mkdir(versionDir)
 log.write(config.version + ' Minecraft version used\n')
+if not os.path.isdir(versionDir): os.mkdir(versionDir)
+
+libraryDir = os.path.join(versionDir, 'Library')
+supportDir = os.path.join(libraryDir, 'Application Support')
+storeLink = os.path.join(supportDir, 'minecraft')
+storeDir = os.path.join(versionDir, '.minecraft')
+
+if not os.path.isdir(libraryDir): os.mkdir(libraryDir)
+if not os.path.isdir(supportDir): os.mkdir(supportDir)
+if not os.path.isdir(storeDir): os.mkdir(storeDir)
+if not os.path.islink(storeLink): os.symlink(storeDir, storeLink)
 
 if platform.system() == 'Windows':
     os.putenv('APPDATA',versionDir)
 elif platform.system() == 'Darwin':
     os.putenv('HOME',versionDir)
-
-log.write('Minecraft Portable 2.7.1\nby NotTarts (mbilker modified version)\n\nStarted at {}\nData directory: {}\n\n'.format(datetime.now(), os.path.realpath(dataDir)))
 
 if not platform.system() == 'Darwin':
     checkForExternal()
@@ -369,12 +379,14 @@ if arguments.server:
     server = mcpServer(serverFile, serverUrl) # Downloading server
     server.launch(config, launcher) # Launch Minecraft server!
 
-#if arguments.logwindow == True:
-#    app = wx.App(False)
-#    frame = MainWindow(None, "Minecraft Log")
-#    app.MainLoop()
-#else:
-#    launcher.launch(user, config, None) # Launch Minecraft!
+'''
+if arguments.logwindow == True:
+    app = wx.App(False)
+    frame = MainWindow(None, "Minecraft Log")
+    app.MainLoop()
+else:
+    launcher.launch(user, config, None) # Launch Minecraft!
+'''
 launcher.launch(user, config, None) # Launch Minecraft!
 
 if os.path.isfile(config.configSpec): os.remove(config.configSpec)
