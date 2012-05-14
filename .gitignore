@@ -1,5 +1,7 @@
-mcp_data
 ._*
+*.pyc
+
+mcp_data
 minecraftp*app
 jars
 Mods*
