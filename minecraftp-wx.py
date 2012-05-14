@@ -296,7 +296,7 @@ if hasattr(sys, 'frozen'):
     if platform.system() == 'Windows':
         currentDir = os.path.dirname(sys.executable)
     elif platform.system() == 'Darwin':
-        currentDir = os.path.normpath(os.path.join(sys.path[0], '..', '..', '..'))
+        currentDir = os.path.normpath(os.path.join(os.path.dirname(sys.executable), '..', '..', '..'))
 else:
     currentDir = sys.path[0]
 

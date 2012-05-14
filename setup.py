@@ -7,9 +7,12 @@ Usage:
 
 from setuptools import setup
 
+from plistlib import Plist
+plist = Plist.fromFile('Info.plist')
+
 APP = ['minecraftp.py']
 DATA_FILES = []
-OPTIONS = {'argv_emulation': False}
+OPTIONS = {'argv_emulation': False, 'plist': plist, 'iconfile': 'Icon.icns'}
 
 setup(
     app=APP,

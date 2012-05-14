@@ -1,6 +1,9 @@
 ._*
 *.pyc
 
+build
+dist
+
 mcp_data
 minecraftp*app
 jars

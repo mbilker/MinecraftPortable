@@ -7,9 +7,13 @@ Usage:
 
 from setuptools import setup
 
+from plistlib import Plist
+plist = Plist.fromFile('Info.plist')
+plist.update({'CFBundleDisplayName': 'Minecraft Portable-wx', 'CFBundleExecutable': 'Minecraft Portable-wx', 'CFBundleName': 'Minecraft Portable-wx'})
+
 APP = ['minecraftp-wx.py']
 DATA_FILES = []
-OPTIONS = {'argv_emulation': False}
+OPTIONS = {'argv_emulation': False, 'plist': plist, 'iconfile': 'Icon.icns'}
 
 setup(
     app=APP,
